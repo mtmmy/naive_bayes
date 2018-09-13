@@ -10,8 +10,8 @@ from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import sent_tokenize, word_tokenize, RegexpTokenizer
 from functools import reduce
 
-POS_TRIPLATES = {}
-NEG_TRIPLATES = {}
+POS_WORD_COUNTS = {}
+NEG_WORD_COUNTS = {}
 NUM_FILES = 1000
 TOTAL_POS = NUM_FILES
 TOTAL_NEG = NUM_FILES
@@ -39,7 +39,7 @@ def cleanReview(review):
 
     return stemmedWords
 
-def wordsCounting(words, reviewName, isPos):
+def wordsCounting(words, isPos):
     counter = {}
     for word in words:
         if word in counter:
@@ -47,47 +47,47 @@ def wordsCounting(words, reviewName, isPos):
         else:
             counter[word] = 1
     
-    triplets = []
+    wordCounts = []
 
     for key, val in counter.items():
-        triplets.append([key, reviewName, val])
+        wordCounts.append([key, val])
 
-    return triplets
+    return wordCounts
 
 def writeTriplates():
     with open("triplets.txt", "w") as myfile:
-        for filename, triplets in POS_TRIPLATES.items():
-            for t in triplets:
-                strTriplates = "(" + t[0] + "," + filename + "," + str(t[2]) + ")"
+        for filename, wordCounts in POS_WORD_COUNTS.items():
+            for wordCount in wordCounts:
+                strTriplates = "(" + wordCount[0] + "," + filename + "," + str(wordCount[1]) + ")"
                 myfile.write(strTriplates + "\n")
-        for filename, triplets in NEG_TRIPLATES.items():
-            for t in triplets:
-                strTriplates = "(" + t[0] + "," + filename + "," + str(t[2]) + ")"
+        for filename, wordCounts in NEG_WORD_COUNTS.items():
+            for wordCount in wordCounts:
+                strTriplates = "(" + wordCount[0] + "," + filename + "," + str(wordCount[1]) + ")"
                 myfile.write(strTriplates + "\n")        
 
 def loadFiles():
     global POS_DIR
     global NEG_DIR
     global ALL_DIR
-    # POS_DIR = os.listdir("movie_review_data/pos")[:NUM_FILES]
-    POS_DIR = os.listdir("movie_review_data/pos")
+    POS_DIR = os.listdir("movie_review_data/pos")[:NUM_FILES]
+    # POS_DIR = os.listdir("movie_review_data/pos")
     for filename in POS_DIR:
         with open("movie_review_data/pos/" + filename, "r") as myfile:
             filenamePure = filename.replace(".txt", "")
             ALL_DIR.append(["pos", filenamePure])
             words = cleanReview(myfile.read())
-            triplets = wordsCounting(words, filenamePure, True)
-            POS_TRIPLATES.setdefault(filenamePure, triplets)
+            wordCounts = wordsCounting(words, True)
+            POS_WORD_COUNTS.setdefault(filenamePure, wordCounts)
 
-    # NEG_DIR = os.listdir("movie_review_data/neg")[:NUM_FILES]
-    NEG_DIR = os.listdir("movie_review_data/neg")
+    NEG_DIR = os.listdir("movie_review_data/neg")[:NUM_FILES]
+    # NEG_DIR = os.listdir("movie_review_data/neg")
     for filename in NEG_DIR:
         with open("movie_review_data/neg/" + filename, "r") as myfile:
             filenamePure = filename.replace(".txt", "")
             ALL_DIR.append(["neg", filenamePure])
             words = cleanReview(myfile.read())
-            triplets = wordsCounting(words, filenamePure, False)
-            NEG_TRIPLATES.setdefault(filenamePure, triplets)
+            wordCounts = wordsCounting(words, False)
+            NEG_WORD_COUNTS.setdefault(filenamePure, wordCounts)
 
 def calcMLE(trainingFiles):
     mle = {}
@@ -98,14 +98,14 @@ def calcMLE(trainingFiles):
     numNeg = 0
     for f in trainingFiles:
         if f[0] == "pos":
-            posTrainData.extend(POS_TRIPLATES[f[1]])
+            posTrainData.extend(POS_WORD_COUNTS[f[1]])
             numPos += 1
         else:
-            negTrainData.extend(NEG_TRIPLATES[f[1]])
+            negTrainData.extend(NEG_WORD_COUNTS[f[1]])
             numNeg += 1
 
-    for triplet in posTrainData:
-        word, filename, count = triplet
+    for wordCount in posTrainData:
+        word, count = wordCount
         wordSet.add(word)
         if word not in mle:
             mle[word] = {count: {"pos": 1, "neg": 0}}
@@ -115,8 +115,8 @@ def calcMLE(trainingFiles):
             else:
                 mle[word][count]["pos"] += 1
 
-    for triplet in negTrainData:
-        word, filename, count = triplet
+    for wordCount in negTrainData:
+        word, count = wordCount
         wordSet.add(word)
         if word not in mle:
             mle[word] = {count: {"pos": 0, "neg": 1}}
@@ -127,13 +127,13 @@ def calcMLE(trainingFiles):
                 mle[word][count]["neg"] += 1
     return [mle, numPos, numNeg, len(wordSet)]
 
-def classifier(review, triplates, mleResult):
+def classifier(review, wordCounts, mleResult):
     mle, numPos, numNeg, vocSize = mleResult
     
     piPos = []
     piNeg = []
-    for triplate in triplates:
-        word, filename, count = triplate
+    for wordCount in wordCounts:
+        word, count = wordCount
         if word in mle:
             if count in mle[word]:
                 if "pos" in mle[word][count]:
@@ -169,13 +169,13 @@ def classifier(review, triplates, mleResult):
     return result == review
 
 def naiveBayes(portion):
-    trainCount = math.floor(len(ALL_DIR) * portion)
-    # trainCount = math.floor(NUM_FILES * portion)
+    # trainCount = math.floor(len(ALL_DIR) * portion)
+    trainCount = math.floor(NUM_FILES * portion)
     
     allDir = ALL_DIR
     random.shuffle(allDir)
 
-    # allDir = allDir[:NUM_FILES]
+    allDir = allDir[:NUM_FILES]
 
     trainingFiles = allDir[:trainCount]
     testFiles = allDir[trainCount:]
@@ -189,9 +189,9 @@ def naiveBayes(portion):
     for f in testFiles:
         result = False
         if f[0] == "pos":
-            result = classifier(f[0], POS_TRIPLATES[f[1]], mleResult)
+            result = classifier(f[0], POS_WORD_COUNTS[f[1]], mleResult)
         else:
-            result = classifier(f[0], NEG_TRIPLATES[f[1]], mleResult)
+            result = classifier(f[0], NEG_WORD_COUNTS[f[1]], mleResult)
         if result:
             correct += 1
         else:
@@ -203,7 +203,7 @@ def naiveBayes(portion):
 print("Start Loading Files")
 loadFiles()
 print("Finish Loading Files")
-writeTriplates()
+# writeTriplates()
 portions = [0.1, 0.3, 0.5, 0.7, 0.8, 0.9]
 for i in range(len(portions)):
     print("Portion: " + str(portions[i]) + ": ")
