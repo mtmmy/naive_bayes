@@ -7,8 +7,7 @@ import random
 import math
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
-from nltk.tokenize import sent_tokenize, word_tokenize, RegexpTokenizer
-from functools import reduce
+from nltk.tokenize import RegexpTokenizer
 
 POS_WORD_COUNTS = {}
 NEG_WORD_COUNTS = {}
@@ -42,13 +41,9 @@ def cleanReview(review):
 def wordsCounting(words, isPos):
     counter = {}
     for word in words:
-        if word in counter:
-            counter[word] += 1
-        else:
-            counter[word] = 1
+        counter[word] = counter.setdefault(word, 0) + 1
     
     wordCounts = []
-
     for key, val in counter.items():
         wordCounts.append([key, val])
 
@@ -90,12 +85,10 @@ def loadFiles():
             NEG_WORD_COUNTS.setdefault(filenamePure, wordCounts)
 
 def calcMLE(trainingFiles):
-    mle = {}
-    wordSet = set()
-    posTrainData = []
-    negTrainData = []
-    numPos = 0
-    numNeg = 0
+    mle, wordSet = {}, set()
+    posTrainData, negTrainData = [], []
+    numPos, numNeg = 0, 0
+
     for f in trainingFiles:
         if f[0] == "pos":
             posTrainData.extend(POS_WORD_COUNTS[f[1]])
@@ -125,13 +118,13 @@ def calcMLE(trainingFiles):
                 mle[word][count] = {"pos": 0, "neg": 1}
             else:
                 mle[word][count]["neg"] += 1
+
     return [mle, numPos, numNeg, len(wordSet)]
 
 def classifier(review, wordCounts, mleResult):
     mle, numPos, numNeg, vocSize = mleResult
     
-    piPos = []
-    piNeg = []
+    piPos, piNeg = [], []
     for wordCount in wordCounts:
         word, count = wordCount
         if word in mle:
@@ -151,40 +144,31 @@ def classifier(review, wordCounts, mleResult):
                         prob =  1 / (numNeg + vocSize)
                         piNeg.append(math.log2(prob))
             else:
-                probPos = 1 / (numPos + vocSize)
-                probNeg = 1 / (numNeg + vocSize)
+                probPos, probNeg = 1 / (numPos + vocSize), 1 / (numNeg + vocSize)                
                 piPos.append(math.log2(probPos))
                 piNeg.append(math.log2(probNeg))
         else:
-            probPos = 1 / (numPos + vocSize)
-            probNeg = 1 / (numNeg + vocSize)
+            probPos, probNeg = 1 / (numPos + vocSize), 1 / (numNeg + vocSize)
             piPos.append(math.log2(probPos))
             piNeg.append(math.log2(probNeg))
 
-
-    posProd = sum(piPos)
-    negProd = sum(piNeg)
+    posProd, negProd = sum(piPos), sum(piNeg)
     
     result = "pos" if posProd > negProd else "neg"
     return result == review
 
 def naiveBayes(portion):
     # trainCount = math.floor(len(ALL_DIR) * portion)
-    trainCount = math.floor(NUM_FILES * portion)
-    
-    allDir = ALL_DIR
+    trainCount, allDir = math.floor(NUM_FILES * portion), ALL_DIR
     random.shuffle(allDir)
 
     allDir = allDir[:NUM_FILES]
 
-    trainingFiles = allDir[:trainCount]
-    testFiles = allDir[trainCount:]
-
+    trainingFiles, testFiles = allDir[:trainCount], allDir[trainCount:]
     mleResult = calcMLE(trainingFiles)
 
     # test
     correct = 0
-    wrong = 0
 
     for f in testFiles:
         result = False
@@ -194,10 +178,8 @@ def naiveBayes(portion):
             result = classifier(f[0], NEG_WORD_COUNTS[f[1]], mleResult)
         if result:
             correct += 1
-        else:
-            wrong += 1
 
-    correctRate = correct / (correct + wrong)
+    correctRate = correct / (len(allDir) - trainCount)
     return correctRate
 
 print("Start Loading Files")
@@ -211,5 +193,5 @@ for i in range(len(portions)):
     for j in range(5):
         result = naiveBayes(portions[i])
         right += result
-    print("Corectness: " + "{0:.4f}".format(right / 5))
+    print("Corectness: " + "{0:.5f}".format(right / 5))
 print("done")
