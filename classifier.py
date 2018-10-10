@@ -11,12 +11,13 @@ from nltk.tokenize import RegexpTokenizer
 
 POS_WORD_COUNTS = {}
 NEG_WORD_COUNTS = {}
-NUM_FILES = 1000
-TOTAL_POS = NUM_FILES
-TOTAL_NEG = NUM_FILES
 POS_DIR = []
 NEG_DIR = []
 ALL_DIR = []
+
+nums = [1, 2, 3, 4, 5]
+
+
 
 def cleanReview(review):
     review = review.lower()
@@ -48,6 +49,7 @@ def wordsCounting(words, isPos):
         wordCounts.append([key, val])
 
     return wordCounts
+    
 
 def writeTriplates():
     with open("triplets.txt", "w") as myfile:
@@ -64,8 +66,7 @@ def loadFiles():
     global POS_DIR
     global NEG_DIR
     global ALL_DIR
-    POS_DIR = os.listdir("movie_review_data/pos")[:NUM_FILES]
-    # POS_DIR = os.listdir("movie_review_data/pos")
+    POS_DIR = os.listdir("movie_review_data/pos")
     for filename in POS_DIR:
         with open("movie_review_data/pos/" + filename, "r") as myfile:
             filenamePure = filename.replace(".txt", "")
@@ -74,8 +75,7 @@ def loadFiles():
             wordCounts = wordsCounting(words, True)
             POS_WORD_COUNTS.setdefault(filenamePure, wordCounts)
 
-    NEG_DIR = os.listdir("movie_review_data/neg")[:NUM_FILES]
-    # NEG_DIR = os.listdir("movie_review_data/neg")
+    NEG_DIR = os.listdir("movie_review_data/neg")
     for filename in NEG_DIR:
         with open("movie_review_data/neg/" + filename, "r") as myfile:
             filenamePure = filename.replace(".txt", "")
@@ -158,11 +158,8 @@ def classifier(review, wordCounts, mleResult):
     return result == review
 
 def naiveBayes(portion):
-    # trainCount = math.floor(len(ALL_DIR) * portion)
-    trainCount, allDir = math.floor(NUM_FILES * portion), ALL_DIR
+    trainCount, allDir = math.floor(len(ALL_DIR) * portion), ALL_DIR
     random.shuffle(allDir)
-
-    allDir = allDir[:NUM_FILES]
 
     trainingFiles, testFiles = allDir[:trainCount], allDir[trainCount:]
     mleResult = calcMLE(trainingFiles)
